@@ -1,0 +1,19 @@
+[project]
+name = "ibm-licensing-helper"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "chromadb>=1.5.5",
+    "langchain>=1.2.14",
+    "langchain-chroma>=1.1.0",
+    "langchain-community>=0.4.1",
+    "langchain-google-genai>=4.2.1",
+    "langchain-pymupdf4llm>=0.5.0",
+    "langchain-text-splitters>=1.1.1",
+    "opencv-python>=4.13.0.92",
+    "pymupdf-layout>=1.27.2.2",
+    "python-dotenv>=1.2.2",
+    "streamlit>=1.56.0",
+]
