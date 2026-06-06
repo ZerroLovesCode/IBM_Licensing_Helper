@@ -6,13 +6,15 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 
+# import chromadb
+
 load_dotenv()
 
 def get_oracle_response(query: str):
     embeddings = GoogleGenerativeAIEmbeddings(
         model = "gemini-embedding-001",
         task_type = "retrieval_query",
-        output_dimensionality = 3072
+        # output_dimensionality = 3072
     )
 
     vector_db = Chroma(
@@ -30,7 +32,7 @@ def get_oracle_response(query: str):
     ]
     prompt = ChatPromptTemplate.from_messages(template)
 
-    llm = ChatGoogleGenerativeAI(model="gemini-3-flash-preview", temperature=0)
+    llm = ChatGoogleGenerativeAI(model="gemini-3-flash-preview", temperature=0.1)
 
     def format_docs(docs):
         return "\n\n".join(
@@ -53,11 +55,19 @@ def get_oracle_response(query: str):
     )
 
     response = rag_chain.invoke(query)
+    print(vector_db)
     source_documents = retriever.invoke(query)
     
     return response, source_documents
 
 # if __name__ == "__main__":
-#     # Test Question
-#     ans, docs = get_oracle_response("What is the definition of ILMT?")
-#     print(f"\nORACLE RESPONSE:\n{ans}")
+    
+    # client = chromadb.PersistentClient(path="ibm_oracle_db")
+    # collections = client.list_collections()
+    # print(collections)
+    # for col in collections:
+    #     print(f"Name: {col.name}, Count: {col.count()}")
+
+    # # Test Question
+    # ans, docs = get_oracle_response("What is the definition of ILMT?")
+    # print(f"\nORACLE RESPONSE:\n{ans}")
