@@ -1,4 +1,5 @@
 import os
+import streamlit as st
 from dotenv import load_dotenv
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_chroma import Chroma
@@ -9,6 +10,9 @@ from langchain_core.output_parsers import StrOutputParser
 # import chromadb
 
 load_dotenv()
+
+if "GEMINI_API_KEY" in st.secrets:
+    os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
 
 def get_oracle_response(query: str, response_length: str = "medium", category: str = "general"):
 
