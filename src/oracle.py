@@ -29,7 +29,7 @@ def get_oracle_response(query: str, response_length: str = "medium", category: s
     )
 
     vector_db = Chroma(
-        persist_directory="ibm_oracle_db",
+        persist_directory="src/ibm_oracle_db",
         embedding_function=embeddings
     )
 
