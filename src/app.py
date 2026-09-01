@@ -16,27 +16,51 @@ st.markdown("""
 
 st.divider()
 
-if 'message_history' not in st.session_state:
-    st.session_state['message_history'] = []
+if "entered_password" not in st.session_state:
+    st.session_state["entered_password"] = False
+
+if not st.session_state["entered_password"]:
+    with st.form(key="auth"):
+        pw = st.text_input(label="**Password**", placeholder="Please enter the password", type="password")
+        st.form_submit_button()
+        # print("submitted")
+        if pw == password:
+            st.session_state['entered_password'] = True
+            st.rerun()
+        elif pw:
+            st.warning("The entered password is incorrect")
+else:
+    if 'message_history' not in st.session_state:
+        st.session_state['message_history'] = []
 
 
-for message in st.session_state['message_history']:
-    with st.chat_message(message['role']):
-        st.text(message['content'])
+    for message in st.session_state['message_history']:
+        with st.chat_message(message['role']):
+            st.text(message['content'])
 
 
-query = st.chat_input(placeholder="Ask a query about IBM licensing")
+    query = st.chat_input(placeholder="Ask a query about IBM licensing")
 
-if query:
-    st.session_state["message_history"].append(
-        {
-            'role': "user",
-            'content': query
-        }
-    )
+    if query:
+        st.session_state["message_history"].append(
+            {
+                'role': "user",
+                'content': query
+            }
+        )
 
-    with st.chat_message('user'):
-        st.text(st.session_state['message_history'][-1]['content'])
+        with st.chat_message('user'):
+            st.text(st.session_state['message_history'][-1]['content'])
+        
+        response = workflow(query=query)
+        st.session_state["message_history"].append(
+            {
+                'role': "ai",
+                'content': response
+            }
+        )
+        with st.chat_message('ai'):
+            st.text(st.session_state['message_history'][-1]['content'])
 
 
 # form_data = {
