@@ -10,7 +10,6 @@ from langchain_chroma import Chroma
 
 from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_core.output_parsers import StrOutputParser
 
 from langgraph.graph import StateGraph, START, END
@@ -72,7 +71,6 @@ def generate_response(state: State) -> dict:
     
     llm = ChatGoogleGenerativeAI(model="gemini-3-flash-preview", temperature=0.1)
     response = (prompt | llm | StrOutputParser()).invoke(state)
-    print(response)
     return {
         "response": response 
     }
