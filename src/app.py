@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-from oracle import get_oracle_response
+from oracle import workflow
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -38,9 +38,17 @@ with st.form(key="get_query", enter_to_submit=False):
 
 if password == password_entered and is_submitted and form_data['query'] and form_data['query'].strip() != '':
     with st.spinner("Retreiving information..."):
-        response, sources = get_oracle_response(query=form_data["query"], response_length=form_data['response_length'], category=form_data['query_category'])
+        response = workflow(query=form_data["query"], response_length=form_data['response_length'], category=form_data['query_category'])
+    
+     
+    with st.chat_message("user"):
+        st.text(form_data['query'])
+    with st.chat_message("ai"):
+        st.text(response)
 
-    with st.container(border=True):
-        st.markdown(response)
+
+
+    # with st.container(border=True):
+    #     st.markdown(response)
 elif is_submitted and password != password_entered:
     st.warning("Password entered is incorrect!")
