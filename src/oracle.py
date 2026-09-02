@@ -72,8 +72,8 @@ def generate_response(state: State) -> dict:
     llm = ChatGoogleGenerativeAI(model="gemini-3-flash-preview", temperature=0.1)
     response = (prompt | llm | StrOutputParser()).invoke(state)
     return {
-        "response": response 
-    }
+        "response": response
+        }
 
 
 
@@ -88,12 +88,12 @@ def workflow(query: str, response_length: str = "medium", category: str = "gener
     graph.add_edge("generate_response", END)
 
     wf = graph.compile()
-    res = wf.invoke({
+    res = wf.stream({
         "query": query,
         "response_length": response_length,
         "category": category
-    })
-    return res['response']
+    }, stream_mode="messages")
+    return res
 
 # if __name__ == "__main__":
     

@@ -53,15 +53,24 @@ else:
             st.text(st.session_state['message_history'][-1]['content'])
         
         response = workflow(query=query)
-        st.session_state["message_history"].append(
+        # st.session_state["message_history"].append(
+        #     {
+        #         'role': "ai",
+        #         'content': response
+        #     }
+        # )
+        with st.chat_message('ai'):
+            ai_message = st.write_stream(
+                message_chunk.content[0]["text"] for message_chunk, metadata in response if message_chunk.content
+            )
+        
+        st.session_state['message_history'].append(
             {
-                'role': "ai",
-                'content': response
+                "role": "ai",
+                "content": ai_message
             }
         )
-        with st.chat_message('ai'):
-            st.text(st.session_state['message_history'][-1]['content'])
-
+          
 
 # form_data = {
 #     "query": None,
