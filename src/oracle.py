@@ -10,6 +10,7 @@ from langchain_chroma import Chroma
 
 from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
 
 from langgraph.graph import StateGraph, START, END
@@ -20,6 +21,7 @@ load_dotenv()
 
 # Utility functions:
 def format_docs(docs):
+    print("formatting documents...")
     return "\n\n".join(
         f"--- START CHUNK ---\n"
         f"Source: {d.metadata.get('source')}\n"
@@ -42,6 +44,7 @@ class State(TypedDict):
 
 # Retrieve the relevant documents from the vector DB
 def retrieve_chunks(state: State) -> dict:
+    print("Retrieving documents...")
     embeddings = GoogleGenerativeAIEmbeddings(
         model = "gemini-embedding-001",
         task_type = "retrieval_query",
@@ -60,16 +63,17 @@ def retrieve_chunks(state: State) -> dict:
 
 # use the LLM along with the context from the vector db to generate a response
 def generate_response(state: State) -> dict:
+    print(f"Generating response...using model {os.environ["GEMINI_GENERATION_MODEL"]}")
     template = [
-        ("system", "You are an IBM Licensing expert who has been contracted to answer queries with regards to IBM software and its licensing. Use only the provided context to answer. You will receive inputs from the user such as the response length and the category of query: {category} to help you tailor your response"
-                    "Give your answer according to the requested length: {response_length}; If the user desires a summarized answer, use no more than 100 words, If the answer length is medium, then use no more than 300 words and if the answer length is long, then use no more than 500 words. However, ensure that the provided output answers the user's query."
-                    "If the answer is not in the context, state the following verbatim 'the information is not available'"
-                    "Always cite the source and page number in a pretty and human readable format, however NEVER reveal the folder structure etc. of the retrived information, just the name of the document and the page number (use markdown)."),
-        ("human", "Context:\n{retrieved_docs}\n\nQuestion: {query} \n\n Answer length desired: {response_length}")
+        ("system", "You are an IBM Licensing expert who has been contracted to answer queries with regards to IBM software and its licensing. Use only the provided context to answer."
+        "If the answer is not in the context, state the following verbatim 'The information is not available'"
+        "Always cite the source and page number in a pretty and human readable format, however NEVER reveal the folder structure etc. of the retrived information, just the name of the document and the page number (use markdown)."),
+        (MessagesPlaceholder("messages")),
+        ("human", "Context:\n{retrieved_docs}\n\nQuestion: {query}")
     ]
     prompt = ChatPromptTemplate.from_messages(template)
     
-    llm = ChatGoogleGenerativeAI(model="gemini-3-flash-preview", temperature=0.1)
+    llm = ChatGoogleGenerativeAI(model=os.environ["GEMINI_GENERATION_MODEL"], temperature=0.1)
     response = (prompt | llm | StrOutputParser()).invoke(state)
     return {
         "response": response
@@ -78,7 +82,8 @@ def generate_response(state: State) -> dict:
 
 
 
-def workflow(query: str, response_length: str = "medium", category: str = "general"):
+def workflow(message_history: list[BaseMessage], query: str, response_length: str = "medium", category: str = "general"):
+    print("Starting the workflow...")
     graph = StateGraph(State)
     graph.add_node("retrieve_chunks", retrieve_chunks)
     graph.add_node("generate_response", generate_response)
@@ -89,6 +94,7 @@ def workflow(query: str, response_length: str = "medium", category: str = "gener
 
     wf = graph.compile()
     res = wf.stream({
+        "messages": message_history,
         "query": query,
         "response_length": response_length,
         "category": category
