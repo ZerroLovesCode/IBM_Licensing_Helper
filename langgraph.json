@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "agent":"src/oracle.py:make_graph" 
+  },
+  "env": ".env"
+}

@@ -12,6 +12,7 @@ from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.prompts import MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnableConfig
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
@@ -80,6 +81,17 @@ def generate_response(state: State) -> dict:
         }
 
 
+def make_graph(config: RunnableConfig):
+    graph = StateGraph(State)
+    graph.add_node("retrieve_chunks", retrieve_chunks)
+    graph.add_node("generate_response", generate_response)
+
+    graph.add_edge(START, "retrieve_chunks")
+    graph.add_edge("retrieve_chunks", "generate_response")
+    graph.add_edge("generate_response", END)
+
+    wf = graph.compile()
+    return wf
 
 
 def workflow(message_history: list[BaseMessage], query: str, response_length: str = "medium", category: str = "general"):
