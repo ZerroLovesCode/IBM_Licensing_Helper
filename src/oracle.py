@@ -33,14 +33,14 @@ def format_docs(docs):
 )
 
 
+# State that flows between the various nodes in the workflow.
 class State(TypedDict):
     query: str 
-    response_length: str
-    category: str
+    messages: Annotated[list[BaseMessage], add_messages] 
 
+    needs_retrieval: bool
     retrieved_docs: str
     response: str
-    messages: Annotated[list[BaseMessage], add_messages] 
 
 
 # Retrieve the relevant documents from the vector DB
@@ -81,6 +81,10 @@ def generate_response(state: State) -> dict:
         }
 
 
+def needs_retireval(state: State) -> dict:
+    pass
+
+# This function is required for integration with LangSmith and also to centralize workflow updates
 def make_graph(config: RunnableConfig):
     graph = StateGraph(State)
     graph.add_node("retrieve_chunks", retrieve_chunks)
