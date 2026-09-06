@@ -94,22 +94,13 @@ def make_graph(config: RunnableConfig):
     return wf
 
 
-def workflow(message_history: list[BaseMessage], query: str, response_length: str = "medium", category: str = "general"):
+def workflow(message_history: list[BaseMessage], query: str):
     print("Starting the workflow...")
-    graph = StateGraph(State)
-    graph.add_node("retrieve_chunks", retrieve_chunks)
-    graph.add_node("generate_response", generate_response)
-
-    graph.add_edge(START, "retrieve_chunks")
-    graph.add_edge("retrieve_chunks", "generate_response")
-    graph.add_edge("generate_response", END)
-
-    wf = graph.compile()
+    
+    wf = make_graph({})
     res = wf.stream({
         "messages": message_history,
         "query": query,
-        "response_length": response_length,
-        "category": category
     }, stream_mode="messages")
     return res
 
