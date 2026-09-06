@@ -2,7 +2,8 @@ import streamlit as st
 
 import os
 from dotenv import load_dotenv
-from typing import TypedDict, Annotated
+from typing import TypedDict, Annotated, Literal
+from pydantic import Field, BaseModel
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 
@@ -16,6 +17,7 @@ from langchain_core.runnables import RunnableConfig
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
+from langgraph.types import Command
 
 load_dotenv()
 
@@ -64,14 +66,26 @@ def retrieve_chunks(state: State) -> dict:
 
 # use the LLM along with the context from the vector db to generate a response
 def generate_response(state: State) -> dict:
+    #  Have two different prompts depending of if we have retrieved chunks...
     print(f"Generating response...using model {os.environ["GEMINI_GENERATION_MODEL"]}")
-    template = [
-        ("system", "You are an IBM Licensing expert who has been contracted to answer queries with regards to IBM software and its licensing. Use only the provided context to answer."
-        "If the answer is not in the context, state the following verbatim 'The information is not available'"
-        "Always cite the source and page number in a pretty and human readable format, however NEVER reveal the folder structure etc. of the retrived information, just the name of the document and the page number (use markdown)."),
-        (MessagesPlaceholder("messages")),
-        ("human", "Context:\n{retrieved_docs}\n\nQuestion: {query}")
-    ]
+
+    if state['needs_retrieval']:
+        template = [
+            ("system", "You are an IBM Licensing expert who has been contracted to answer queries with regards to IBM software and its licensing. Use only the provided context to answer."
+            "If the answer is not in the context, state the following verbatim 'The information is not available'"
+            "Always cite the source and page number in a pretty and human readable format, however NEVER reveal the folder structure etc. of the retrived information, just the name of the document and the page number (use markdown)."),
+            (MessagesPlaceholder("messages")),
+            ("human", "Context:\n{retrieved_docs}\n\nQuestion: {query}")
+        ]
+    else:
+        template = [
+            ("system", "You are an IBM Licensing expert who has been contracted to answer queries with regards to IBM software and its licensing. Ask the user how you can help with their query. Let the user know that you can ONLY help with queries that are relevant to IBM licensing. You will be provided the chat history and the query"
+            ),
+            (MessagesPlaceholder("messages")),
+            ("human", "Query: {query}")
+        ]
+
+
     prompt = ChatPromptTemplate.from_messages(template)
     
     llm = ChatGoogleGenerativeAI(model=os.environ["GEMINI_GENERATION_MODEL"], temperature=0.1)
@@ -81,16 +95,44 @@ def generate_response(state: State) -> dict:
         }
 
 
-def needs_retireval(state: State) -> dict:
-    pass
+class Classifier_output(BaseModel):
+    classifier_result: bool = Field(description="True if the given query is related to IBM licensing, False otherwise")
 
+def needs_retrieval(state: State) -> Command[Literal["generate_response", "retrieve_chunks"]]:
+    query = state["query"]
+    classifier = ChatGoogleGenerativeAI(model=os.environ["GEMINI_CLASSIFIER_MODEL"], temperature=0).with_structured_output(Classifier_output, method="json_schema")
+
+    template = [
+        ("system", "You are a classifier who classifies wheter the given query is related to IBM licensing or some IBM product. You will only output either True (If the query is indeed related to IBM licensing or relevant to IBM licensing) or False (If the query has nothing to do with IBM licensing or relevant to IBM licensing)"),
+        ("human", "Query: {query}")
+    ]
+    prompt = ChatPromptTemplate.from_messages(template)
+    response = (prompt | classifier).invoke(query)
+    return Command(
+        update={
+            "needs_retrieval": response.classifier_result
+        },
+        goto="retrieve_chunks" if response.classifier_result else "generate_response"
+    )
 # This function is required for integration with LangSmith and also to centralize workflow updates
 def make_graph(config: RunnableConfig):
     graph = StateGraph(State)
+    graph.add_node("needs_retrieval", needs_retrieval)
     graph.add_node("retrieve_chunks", retrieve_chunks)
     graph.add_node("generate_response", generate_response)
 
-    graph.add_edge(START, "retrieve_chunks")
+    # graph.add_conditional_edges(
+    #     START,
+    #     needs_retrieval,
+    #     {
+    #        True: "retrieve_chunks",
+    #        False: "generate_response" 
+    #     }
+    # )
+    graph.add_edge(START, "needs_retrieval")
+    # graph.add_edge("needs_retrieval", "retrieve_chunks")
+    # graph.add_edge("needs_retrieval", "generate_response")
+    # graph.add_edge(START, "retrieve_chunks")
     graph.add_edge("retrieve_chunks", "generate_response")
     graph.add_edge("generate_response", END)
 

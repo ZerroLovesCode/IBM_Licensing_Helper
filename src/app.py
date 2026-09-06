@@ -56,7 +56,7 @@ else:
         
         with st.chat_message('ai'):
             ai_message = st.write_stream(
-                message_chunk.content[0]["text"] for message_chunk, metadata in response if message_chunk.content
+                message_chunk.content[0]["text"] for message_chunk, metadata in response if message_chunk.content if metadata.get("langgraph_node") == "generate_response"
             )
         
         st.session_state['message_history'].append(
