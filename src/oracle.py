@@ -103,11 +103,17 @@ def needs_retrieval(state: State) -> Command[Literal["generate_response", "retri
     classifier = ChatGoogleGenerativeAI(model=os.environ["GEMINI_CLASSIFIER_MODEL"], temperature=0).with_structured_output(Classifier_output, method="json_schema")
 
     template = [
-        ("system", "You are a classifier who classifies wheter the given query is related to IBM licensing or some IBM product. You will only output either True (If the query is indeed related to IBM licensing or relevant to IBM licensing) or False (If the query has nothing to do with IBM licensing or relevant to IBM licensing)"),
+        ("system", "You are a classifier who classifies whether the given query is related to IBM licensing or some IBM product. You will also be given a conversation history, which may be relevant in deciding the classification. You will only output either True (If the query is indeed related to IBM licensing or relevant to IBM licensing) or False (If the query has nothing to do with IBM licensing or relevant to IBM licensing)"),
+        (MessagesPlaceholder("messages")),
         ("human", "Query: {query}")
     ]
     prompt = ChatPromptTemplate.from_messages(template)
-    response = (prompt | classifier).invoke(query)
+    response = (prompt | classifier).invoke(
+        {
+            "query": query,
+            "messages": state["messages"]
+        }
+    )
     return Command(
         update={
             "needs_retrieval": response.classifier_result
