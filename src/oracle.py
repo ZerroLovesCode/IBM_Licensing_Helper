@@ -45,11 +45,15 @@ class State(TypedDict):
     response: str
 
 
+class RequiresRewrite(BaseModel):
+    rewrite_required: bool = Field(description="True if the user's query is not a standalone query and requires more context from the conversation history, False otherwise")
+    new_query: str = Field(description="The new query if a rewrite is required, if the query is standalone and does not require a rewrite, then this will be an empty string")
+
 # Retrieve the relevant documents from the vector DB
 def retrieve_chunks(state: State) -> dict:
     print("Retrieving documents...")
     embeddings = GoogleGenerativeAIEmbeddings(
-        model = "gemini-embedding-001",
+        model = os.environ['GEMINI_EMBEDDING_MODEL'],
         task_type = "retrieval_query",
     )   
 
@@ -58,8 +62,26 @@ def retrieve_chunks(state: State) -> dict:
         embedding_function=embeddings
     )
 
+    # The retriever must be aware of the conversation that happened so far because the query might depend on previous chat.
+    query = state['query']
+    rewriter_model = ChatGoogleGenerativeAI(
+        model=os.environ['GEMINI_REWRITE_MODEL']
+    ).with_structured_output(RequiresRewrite, method="json_schema")
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "You are an agent that rewrites a query asked by a human if it depends on the prior conversation history between the human and the AI. The main purpose behind doing this is to ensure that the retriever in the RAG system has enough context to understand the query properly and perform semantic search. If the query does NOT require additional context (that is, it is a standalone query), don't return a rewritten query. You will return 2 things, (1) whether the query requires a rewrite and (2) the rewritten query if a rewrite is required"),
+        (MessagesPlaceholder("messages")),
+        ("human", "Query: {query}")
+    ])
+    rewriter_response = (prompt | rewriter_model).invoke({
+        "query": query,
+        "messages": state['messages']
+    })
+    if rewriter_response.rewrite_required:
+        query = rewriter_response.new_query
+
     retriever = vector_db.as_retriever(search_kwargs = {"k": 5})
-    documents = (retriever | format_docs).invoke(state['query'])
+    documents = (retriever | format_docs).invoke(query)
     return {
         "retrieved_docs": documents
     }
