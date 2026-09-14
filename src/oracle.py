@@ -69,7 +69,7 @@ def retrieve_chunks(state: State) -> dict:
     ).with_structured_output(RequiresRewrite, method="json_schema")
 
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are an agent that rewrites a query asked by a human if it depends on the prior conversation history between the human and the AI. The main purpose behind doing this is to ensure that the retriever in the RAG system has enough context to understand the query properly and perform semantic search. If the query does NOT require additional context (that is, it is a standalone query), don't return a rewritten query. You will return 2 things, (1) whether the query requires a rewrite and (2) the rewritten query if a rewrite is required"),
+        ("system", "You are an agent that rewrites a query asked by a human if it depends on the prior conversation history between the human and the AI. The main purpose behind doing this is to ensure that the retriever in the RAG system has enough context to understand the query properly and perform semantic search. If the query does NOT require additional context (that is, it is a standalone query), don't return a rewritten query. You will return 2 things, (1) whether the query requires a rewrite and (2) the rewritten query including the relevant context from the previous conversation history if a rewrite is required"),
         (MessagesPlaceholder("messages")),
         ("human", "Query: {query}")
     ])

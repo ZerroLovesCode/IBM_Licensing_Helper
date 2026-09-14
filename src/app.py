@@ -19,6 +19,37 @@ st.divider()
 if "entered_password" not in st.session_state:
     st.session_state["entered_password"] = False
 
+
+STATUS_NODES = {
+    "retrieve_chunks": "Retrieving relevant documentation...",
+    "generate_response": "Generating answer..."
+}
+
+def text_stream(response):
+    # status_set = set()
+    # status =  st.status(label="Thinking...", expanded=False)
+    # for message_chunk, metadata in response:
+    #     node = metadata.get("langgraph_node")
+    #     if node and node not in status_set:
+    #         status_set.add(node)
+    #         label = STATUS_NODES.get(node, f"Working...")
+    #         status.update(label=label)
+        
+    #     if node == "generate_response" and message_chunk.content:
+    #         status.update(label="Answer ready...", state="complete")
+    #         yield message_chunk.content[0]["text"]
+
+    with st.spinner(text=f"Thinking..."):
+        for message_chunk, metadata in response:
+            if message_chunk.content and metadata.get("langgraph_node") == "generate_response":
+                yield message_chunk.content[0]["text"]
+                break
+    
+    for message_chunk, metadata in response:
+        if message_chunk.content and metadata.get("langgraph_node") == "generate_response":
+            yield message_chunk.content[0]["text"]
+
+
 if not st.session_state["entered_password"]:
     with st.form(key="auth"):
         pw = st.text_input(label="**Password**", placeholder="Please enter the password", type="password")
@@ -36,7 +67,7 @@ else:
 
     for message in st.session_state['message_history']:
         with st.chat_message(message['role']):
-            st.text(message['content'])
+            st.markdown(message['content'])
 
 
     query = st.chat_input(placeholder="Ask a query about IBM licensing")
@@ -56,7 +87,8 @@ else:
         
         with st.chat_message('ai'):
             ai_message = st.write_stream(
-                message_chunk.content[0]["text"] for message_chunk, metadata in response if message_chunk.content if metadata.get("langgraph_node") == "generate_response"
+                # message_chunk.content[0]["text"] for message_chunk, metadata in response if message_chunk.content if metadata.get("langgraph_node") == "generate_response"
+                text_stream(response=response)
             )
         
         st.session_state['message_history'].append(
