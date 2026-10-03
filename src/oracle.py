@@ -1,7 +1,7 @@
-import streamlit as st
-
 import os
 from dotenv import load_dotenv
+from pathlib import Path
+from functools import lru_cache
 from typing import TypedDict, Annotated, Literal
 from pydantic import Field, BaseModel
 
@@ -14,6 +14,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.prompts import MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import tool
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
@@ -37,12 +38,53 @@ def format_docs(docs):
 
 # State that flows between the various nodes in the workflow.
 class State(TypedDict):
-    query: str 
+    # query: str 
     messages: Annotated[list[BaseMessage], add_messages] 
 
-    needs_retrieval: bool
-    retrieved_docs: str
-    response: str
+    # needs_retrieval: bool
+    # retrieved_docs: str
+    # response: str
+
+# Creating a separate function to get the retriever so that it can be cached.
+@lru_cache(maxsize=1)
+def get_retriever():
+    DB_DIR = Path(__file__).parent.resolve()
+    if not (DB_DIR / "ibm_oracle_db").is_dir():
+        raise FileNotFoundError("The vector database is not initialized, please run the ingestion script...")
+
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model = os.environ['GEMINI_EMBEDDING_MODEL'],
+        task_type = 'retrieval_query'
+    )
+
+    vector_db = Chroma(
+        persist_directory = DB_DIR / "ibm_oracle_db", 
+        embedding_function = embeddings
+    )
+    if not (vector_db.get(limit=1).get("ids")):
+        raise RuntimeError("The database is empty, please run the ingestion script...")
+
+    retriever = vector_db.as_retriever(search_kwargs = {"k":5})
+    return retriever
+
+@tool
+def search_official_ibm_documentation(query: str) -> str:
+    '''
+    Retrieves relevant documentation chunks from the official IBM knowledge base (Vector Database) to answer queries that are relevant to IBM licensing.
+    Use this tool when the user's query is specific to IBM licensing and requires grounding in official IBM documentation.
+
+    Args:
+        query: str = a self-contained search query; replace pronouns and references like 'it' or 'that option' with the actual product or concept from the conversation. This query will be used to search a vector database with the embedded documents.
+    
+    Returns:
+        A string that contains the relevant chunks that are obtained after the search - Contains the content along with the metadata such as Source and Page Number. Each chunk will be separated by --- START CHUNK --- and --- END CHUNK --- 
+
+    Do NOT use this if the query is NOT relevant to IBM software or Licensing.
+    '''
+
+    retriever = get_retriever()
+    documents = (retriever | format_docs).invoke(query)
+    return documents
 
 
 class RequiresRewrite(BaseModel):
@@ -50,41 +92,41 @@ class RequiresRewrite(BaseModel):
     new_query: str = Field(description="The new query if a rewrite is required, if the query is standalone and does not require a rewrite, then this will be an empty string")
 
 # Retrieve the relevant documents from the vector DB
-def retrieve_chunks(state: State) -> dict:
-    print("Retrieving documents...")
-    embeddings = GoogleGenerativeAIEmbeddings(
-        model = os.environ['GEMINI_EMBEDDING_MODEL'],
-        task_type = "retrieval_query",
-    )   
+# def retrieve_chunks(state: State) -> dict:
+#     print("Retrieving documents...")
+#     embeddings = GoogleGenerativeAIEmbeddings(
+#         model = os.environ['GEMINI_EMBEDDING_MODEL'],
+#         task_type = "retrieval_query",
+#     )   
 
-    vector_db = Chroma(
-        persist_directory="src/ibm_oracle_db",
-        embedding_function=embeddings
-    )
+#     vector_db = Chroma(
+#         persist_directory="src/ibm_oracle_db",
+#         embedding_function=embeddings
+#     )
 
-    # The retriever must be aware of the conversation that happened so far because the query might depend on previous chat.
-    query = state['query']
-    rewriter_model = ChatGoogleGenerativeAI(
-        model=os.environ['GEMINI_REWRITE_MODEL']
-    ).with_structured_output(RequiresRewrite, method="json_schema")
+#     # The retriever must be aware of the conversation that happened so far because the query might depend on previous chat.
+#     query = state['query']
+#     rewriter_model = ChatGoogleGenerativeAI(
+#         model=os.environ['GEMINI_REWRITE_MODEL']
+#     ).with_structured_output(RequiresRewrite, method="json_schema")
 
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are an agent that rewrites a query asked by a human if it depends on the prior conversation history between the human and the AI. The main purpose behind doing this is to ensure that the retriever in the RAG system has enough context to understand the query properly and perform semantic search. If the query does NOT require additional context (that is, it is a standalone query), don't return a rewritten query. You will return 2 things, (1) whether the query requires a rewrite and (2) the rewritten query including the relevant context from the previous conversation history if a rewrite is required"),
-        (MessagesPlaceholder("messages")),
-        ("human", "Query: {query}")
-    ])
-    rewriter_response = (prompt | rewriter_model).invoke({
-        "query": query,
-        "messages": state['messages']
-    })
-    if rewriter_response.rewrite_required:
-        query = rewriter_response.new_query
+#     prompt = ChatPromptTemplate.from_messages([
+#         ("system", "You are an agent that rewrites a query asked by a human if it depends on the prior conversation history between the human and the AI. The main purpose behind doing this is to ensure that the retriever in the RAG system has enough context to understand the query properly and perform semantic search. If the query does NOT require additional context (that is, it is a standalone query), don't return a rewritten query. You will return 2 things, (1) whether the query requires a rewrite and (2) the rewritten query including the relevant context from the previous conversation history if a rewrite is required"),
+#         (MessagesPlaceholder("messages")),
+#         ("human", "Query: {query}")
+#     ])
+#     rewriter_response = (prompt | rewriter_model).invoke({
+#         "query": query,
+#         "messages": state['messages']
+#     })
+#     if rewriter_response.rewrite_required:
+#         query = rewriter_response.new_query
 
-    retriever = vector_db.as_retriever(search_kwargs = {"k": 5})
-    documents = (retriever | format_docs).invoke(query)
-    return {
-        "retrieved_docs": documents
-    }
+#     retriever = vector_db.as_retriever(search_kwargs = {"k": 5})
+#     documents = (retriever | format_docs).invoke(query)
+#     return {
+#         "retrieved_docs": documents
+#     }
 
 # use the LLM along with the context from the vector db to generate a response
 def generate_response(state: State) -> dict:
@@ -158,9 +200,9 @@ def make_graph(config: RunnableConfig):
     #     }
     # )
     graph.add_edge(START, "needs_retrieval")
-    # graph.add_edge("needs_retrieval", "retrieve_chunks")
-    # graph.add_edge("needs_retrieval", "generate_response")
-    # graph.add_edge(START, "retrieve_chunks")
+    graph.add_edge("needs_retrieval", "retrieve_chunks")
+    graph.add_edge("needs_retrieval", "generate_response")
+    graph.add_edge(START, "retrieve_chunks")
     graph.add_edge("retrieve_chunks", "generate_response")
     graph.add_edge("generate_response", END)
 
@@ -179,6 +221,7 @@ def workflow(message_history: list[BaseMessage], query: str):
     return res
 
 # if __name__ == "__main__":
+#     search_official_ibm_documentation.invoke({"query": "What does PVU mean?"})
     
     # client = chromadb.PersistentClient(path="ibm_oracle_db")
     # collections = client.list_collections()
