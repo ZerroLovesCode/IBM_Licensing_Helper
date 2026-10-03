@@ -16,3 +16,5 @@ wheels/
 
 *.env
 src/.streamlit/secrets.toml
+
+.langgraph_api/
