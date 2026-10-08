@@ -19,6 +19,7 @@ from langchain_core.tools import tool
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.graph.message import add_messages
 from langgraph.types import Command
+from langgraph.prebuilt import ToolNode, tools_condition
 
 load_dotenv()
 
@@ -78,8 +79,10 @@ def search_official_ibm_documentation(query: str) -> str:
 
 
 
-# Build the model
-llm = ChatGoogleGenerativeAI(model = os.environ["GEMINI_GENERATION_MODEL"], temperature = 0.1)
+# Build the model and bind tools
+tools = [search_official_ibm_documentation]
+llm_with_tools = ChatGoogleGenerativeAI(model = os.environ["GEMINI_GENERATION_MODEL"], temperature = 0.1).bind_tools(tools)
+
 
 # define the chat node
 def chat_node(state: MessagesState) -> dict:
@@ -87,22 +90,31 @@ def chat_node(state: MessagesState) -> dict:
 
     system_prompt = [("system", "You are a helpful IBM licensing expert. If the user's query is not related to IBM Licensing, you will refuse to answer the query by stating 'I can only help with IBM licensing queries' verbatim.")]
     message_history = state["messages"]
-    response = llm.invoke(system_prompt + message_history) 
+    response = llm_with_tools.invoke(system_prompt + message_history) 
     return {
         "messages": [response]
     }
 
+def make_graph(config: RunnableConfig):
+    builder = StateGraph(MessagesState)
+    builder.add_node("chat", chat_node)
+    builder.add_node("tools", ToolNode(tools))
 
-builder = StateGraph(MessagesState)
-builder.add_node("chat", chat_node)
+    builder.add_edge(START, "chat")
+    builder.add_edge("tools", "chat")
+    builder.add_conditional_edges(
+        "chat",
+        tools_condition,
+        {"tools": "tools", "__end__": END}
+    )
 
-builder.add_edge(START, "chat")
-builder.add_edge("chat", END)
+    graph = builder.compile()
+    return graph
 
-graph = builder.compile()
-
-if __name__ == "main":
+if __name__ == "__main__":
     prompt = {}
     prompt["messages"] = [("user", "What is PVU?")] 
+    graph = make_graph({})
     print(graph.invoke(prompt))
 
+# print(__name__)
