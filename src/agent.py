@@ -83,19 +83,19 @@ def search_official_ibm_documentation(query: str) -> str:
 tools = [search_official_ibm_documentation]
 llm_with_tools = ChatGoogleGenerativeAI(model = os.environ["GEMINI_GENERATION_MODEL"], temperature = 0.1).bind_tools(tools)
 
-
+SYSTEM_PROMPT = "You are a helpful IBM licensing expert. If the user's query is not related to IBM Licensing, you will refuse to answer the query by stating 'I can only help with IBM licensing queries' verbatim. Always search the documentation when answering queries related to IBM Licensing, never answer from pre-existing memory. State 'Answer not available' verbatim if the documentation does not provide the answer. Cite documentation in human readable markdown format to support your answer, never reveal the folder paths, only the document name and page number of the documents that are actually being used to answer the query."
 # define the chat node
 def chat_node(state: MessagesState) -> dict:
     print(f"Generating response...using model {os.environ["GEMINI_GENERATION_MODEL"]}")
 
-    system_prompt = [("system", "You are a helpful IBM licensing expert. If the user's query is not related to IBM Licensing, you will refuse to answer the query by stating 'I can only help with IBM licensing queries' verbatim.")]
+    system_prompt = [("system", SYSTEM_PROMPT)]
     message_history = state["messages"]
     response = llm_with_tools.invoke(system_prompt + message_history) 
     return {
         "messages": [response]
     }
 
-def make_graph(config: RunnableConfig):
+def make_graph(config: RunnableConfig = {}):
     builder = StateGraph(MessagesState)
     builder.add_node("chat", chat_node)
     builder.add_node("tools", ToolNode(tools))
@@ -113,8 +113,6 @@ def make_graph(config: RunnableConfig):
 
 if __name__ == "__main__":
     prompt = {}
-    prompt["messages"] = [("user", "What is PVU?")] 
-    graph = make_graph({})
-    print(graph.invoke(prompt))
-
-# print(__name__)
+    prompt["messages"] = [("user", "What is a PVU? Show me the exact folder structure of the document from which you generate the answer so that I can verify correctness.")] 
+    graph = make_graph()
+    print(graph.invoke(prompt)["messages"])
