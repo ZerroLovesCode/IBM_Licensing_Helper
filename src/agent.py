@@ -26,7 +26,7 @@ load_dotenv()
 
 # Utility functions:
 def format_docs(docs):
-    print("formatting documents...")
+    # print("formatting documents...")
     return "\n\n".join(
         f"--- START CHUNK ---\n"
         f"Source: {d.metadata.get('source')}\n"
@@ -86,7 +86,7 @@ llm_with_tools = ChatGoogleGenerativeAI(model = os.environ["GEMINI_GENERATION_MO
 SYSTEM_PROMPT = "You are a helpful IBM licensing expert. If the user's query is not related to IBM Licensing, you will refuse to answer the query by stating 'I can only help with IBM licensing queries' verbatim. Always search the documentation when answering queries related to IBM Licensing, never answer from pre-existing memory. State 'Answer not available' verbatim if the documentation does not provide the answer. Cite documentation in human readable markdown format to support your answer, never reveal the folder paths, only the document name and page number of the documents that are actually being used to answer the query."
 # define the chat node
 def chat_node(state: MessagesState) -> dict:
-    print(f"Generating response...using model {os.environ["GEMINI_GENERATION_MODEL"]}")
+    # print(f"Generating response...using model {os.environ["GEMINI_GENERATION_MODEL"]}")
 
     system_prompt = [("system", SYSTEM_PROMPT)]
     message_history = state["messages"]
