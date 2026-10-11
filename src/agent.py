@@ -115,6 +115,10 @@ def make_graph(config: RunnableConfig = {}, checkpointer = None):
 
     return graph
 
+def make_graph_for_dev_server(config: RunnableConfig = {}):
+    dev_graph = make_graph()
+    return dev_graph
+
 if __name__ == "__main__":
     prompt = {}
     prompt["messages"] = [("user", "What is a PVU? Show me the exact folder structure of the document from which you generate the answer so that I can verify correctness.")] 
