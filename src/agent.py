@@ -95,7 +95,7 @@ def chat_node(state: MessagesState) -> dict:
         "messages": [response]
     }
 
-def make_graph(config: RunnableConfig = {}):
+def make_graph(config: RunnableConfig = {}, checkpointer = None):
     builder = StateGraph(MessagesState)
     builder.add_node("chat", chat_node)
     builder.add_node("tools", ToolNode(tools))
@@ -108,7 +108,11 @@ def make_graph(config: RunnableConfig = {}):
         {"tools": "tools", "__end__": END}
     )
 
-    graph = builder.compile()
+    if checkpointer is None:
+        graph = builder.compile()
+    else:
+        graph = builder.compile(checkpointer = checkpointer)
+
     return graph
 
 if __name__ == "__main__":
