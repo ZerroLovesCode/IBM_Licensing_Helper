@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Annotated
 from agent import make_graph
@@ -7,6 +8,17 @@ from uuid import uuid4, UUID
 from langgraph.checkpoint.memory import InMemorySaver
 
 app = FastAPI()
+
+origins = [
+    "http://localhost:5173"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins = origins,
+    allow_methods = ["*"],
+    allow_headers = ["*"]
+)
 
 checkpointer = InMemorySaver()
 graph = make_graph(checkpointer=checkpointer)
