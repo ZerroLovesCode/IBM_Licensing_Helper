@@ -7,7 +7,7 @@ interface ChatRequest {
 }
 
 interface ChatResponse {
-  respones: string;
+  message: string;
   session_id: string
 }
 
@@ -43,13 +43,15 @@ async function sendMessage(message: string, session_id?: string): Promise<ChatRe
 function App() {
   const [health, setHealth] = useState("")
   const [chatInput, setChatInput] = useState("")
+  const [agentResponse, setAgentResponse] = useState("")
 
-  async function handleChatSubmit(e){
+  async function handleChatSubmit(e: React.SubmitEvent<HTMLFormElement>){
     e.preventDefault();
     const message = chatInput
     console.log(message)
     const res = await sendMessage(message)
     console.log(res)
+    setAgentResponse(res.message)
     setChatInput("")
   }
 
@@ -67,6 +69,9 @@ function App() {
             </label>
             <button type="submit">Submit</button>
         </form>
+    
+            <p>Agent Response: {agentResponse}</p>
+
     </div>
   )
 }
