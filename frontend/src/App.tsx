@@ -11,6 +11,12 @@ interface ChatResponse {
   session_id: string
 }
 
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}
+
 async function checkHealth() {
   const res = await fetch("http://127.0.0.1:8000/health")
   const data = await res.json()
@@ -41,36 +47,65 @@ async function sendMessage(message: string, session_id?: string): Promise<ChatRe
 }
 
 function App() {
-  const [health, setHealth] = useState("")
+  // const [health, setHealth] = useState("")
   const [chatInput, setChatInput] = useState("")
-  const [agentResponse, setAgentResponse] = useState("")
+  const [messages, setMessages] = useState<Message[]>([])
+  const [session_id, setSession_id] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  async function handleChatSubmit(e: React.SubmitEvent<HTMLFormElement>){
+  // const [agentResponse, setAgentResponse] = useState("")
+
+  function displayMessages(messageList: Message[]) {
+    return (
+      <>
+        {messageList.map((message) => {
+          return (
+            <div key={message.id}>
+              {message.role}: {message.content}
+            </div>)
+        })}
+      </>
+    )
+  }
+  async function handleChatSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
-    const message = chatInput
-    console.log(message)
-    const res = await sendMessage(message)
-    console.log(res)
-    setAgentResponse(res.message)
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: chatInput
+    }
+    setMessages(prev => [...prev, userMessage])
+    const query = userMessage.content
+    const res = await sendMessage(query, session_id ?? undefined)
+    const assistantMessage: Message = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: res.message
+    }
+    setMessages(prev => [...prev, assistantMessage])
+    if (!session_id) {
+      setSession_id(res.session_id)
+    }
+    console.log(messages)
+    // setAgentResponse(res.message)
     setChatInput("")
   }
 
   return (
     <div>
-        <form onSubmit={handleChatSubmit}>
-          <label htmlFor="query">Your Message:
+      {displayMessages(messages)}
+      <form onSubmit={handleChatSubmit}>
+        <label htmlFor="query">Your Message:
           <input
             id="query"
             type="text"
             value={chatInput}
-            onChange={(e)=>{
+            onChange={(e) => {
               setChatInput(e.target.value)
             }} />
-            </label>
-            <button type="submit">Submit</button>
-        </form>
-    
-            <p>Agent Response: {agentResponse}</p>
+        </label>
+        <button type="submit">Submit</button>
+      </form>
 
     </div>
   )
