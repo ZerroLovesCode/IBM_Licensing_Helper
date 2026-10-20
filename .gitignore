@@ -12,9 +12,29 @@ wheels/
 # Data files that don't have to be tracked
 
 # *sqlite3
-*bin
+*.bin
 
 *.env
 src/.streamlit/secrets.toml
 
 .langgraph_api/
+
+# AI agent files: instructions, skills and their working files
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+AGENTS.md
+GEMINI.md
+.gemini/
+.codex/
+.cursor/
+.cursorrules
+.github/copilot-instructions.md
+.agents/
+skills-lock.json
+.taste-skill/
+
+# Local editor settings
+.vscode/
+.idea/
+.DS_Store
