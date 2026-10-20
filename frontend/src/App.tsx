@@ -60,8 +60,9 @@ function App() {
       <>
         {messageList.map((message) => {
           return (
-            <div key={message.id}>
-              {message.role}: {message.content}
+            <div key={message.id} className={`turn turn-${message.role}`}>
+              {message.role === "assistant" && <BrandMark />}
+              <div className="turn-body">{message.content}</div>
             </div>)
         })}
       </>
@@ -69,45 +70,146 @@ function App() {
   }
   async function handleChatSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: chatInput
+    const query = chatInput
+    if (query.trim() != ""){
+      const userMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: query 
+      }
+      setMessages(prev => [...prev, userMessage])
+      setChatInput("")
+      setLoading(true)
+      const res = await sendMessage(query, session_id ?? undefined)
+      const assistantMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: res.message
+      }
+      setMessages(prev => [...prev, assistantMessage])
+      if (!session_id) {
+        setSession_id(res.session_id)
+      }
+      console.log(messages)
+      // setAgentResponse(res.message)
+      setLoading(false)
     }
-    setMessages(prev => [...prev, userMessage])
-    const query = userMessage.content
-    const res = await sendMessage(query, session_id ?? undefined)
-    const assistantMessage: Message = {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content: res.message
+    else{
+      return;
     }
-    setMessages(prev => [...prev, assistantMessage])
-    if (!session_id) {
-      setSession_id(res.session_id)
-    }
-    console.log(messages)
-    // setAgentResponse(res.message)
-    setChatInput("")
   }
 
   return (
-    <div>
-      {displayMessages(messages)}
-      <form onSubmit={handleChatSubmit}>
-        <label htmlFor="query">Your Message:
-          <input
-            id="query"
-            type="text"
-            value={chatInput}
-            onChange={(e) => {
-              setChatInput(e.target.value)
-            }} />
-        </label>
-        <button type="submit">Submit</button>
-      </form>
+    <div className="shell">
+      <header className="topbar">
+        <div className="brand">
+          <BrandMark />
+          Licensing Helper
+        </div>
+        <span className="topbar-note">Answers drawn only from IBM's licensing guides</span>
+      </header>
 
+      <div className="sheet">
+        <div className="layout">
+          <main className="main">
+            {messages.length === 0 ? (
+              <section className="intro">
+                <h1>Ask the IBM licensing guides.</h1>
+                <p className="intro-lede">
+                  Every answer comes from IBM's published licensing documentation and cites the
+                  guide and page it came from, so you can check it before you rely on it.
+                </p>
+                <ul className="starters" aria-label="Example questions">
+                  {STARTER_QUESTIONS.map((question) => (
+                    <li key={question}>
+                      <button type="button" className="starter" onClick={() => setChatInput(question)}>
+                        {question}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : (
+              <section className="transcript" aria-label="Conversation" aria-live="polite">
+                {displayMessages(messages)}
+                {loading && (
+                  <div className="turn turn-assistant turn-pending">
+                    <BrandMark />
+                    <div className="turn-body">
+                      Searching the guides
+                      <span className="dots" aria-hidden="true"><span /><span /><span /></span>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            <div className="composer-dock">
+              <form className="composer" onSubmit={handleChatSubmit}>
+                <label htmlFor="query" className="visually-hidden">Your message</label>
+                <input
+                  id="query"
+                  type="text"
+                  autoComplete="off"
+                  placeholder="Ask about PVUs, sub-capacity, containers…"
+                  value={chatInput}
+                  onChange={(e) => {
+                    setChatInput(e.target.value)
+                  }} />
+                <button type="submit" disabled={loading || chatInput.trim()===""}>Ask</button>
+              </form>
+              <p className="composer-note">Answers cite the guide and page. Check the cited page before relying on it.</p>
+            </div>
+          </main>
+
+          <aside className="rail">
+            <div className="rail-panel">
+              <h2>Guides searched <span className="rail-count">{SOURCE_GUIDES.length}</span></h2>
+              <p>The assistant answers from these documents only.</p>
+              <ul className="sources">
+                {SOURCE_GUIDES.map((guide) => <li key={guide}>{guide}</li>)}
+              </ul>
+            </div>
+          </aside>
+        </div>
+      </div>
     </div>
+  )
+}
+
+// Display-only content for the empty state and the sources rail.
+const STARTER_QUESTIONS = [
+  "What is a PVU and how is it counted?",
+  "When do I need ILMT for sub-capacity licensing?",
+  "How are containers licensed under Cloud Paks?",
+  "Does a backup server need its own licence?",
+]
+
+// Mirrors the PDFs in data/Licensing_documents. Update it by hand when the guides change.
+const SOURCE_GUIDES = [
+  "Audit",
+  "Backup",
+  "Bundling and supporting programs",
+  "Bring your own software licence",
+  "Cloud Paks",
+  "Container licensing",
+  "Entitlements",
+  "IASP program",
+  "IBM licensing tools",
+  "License Information documents",
+  "Non-production usage",
+  "Virtualization capacity",
+]
+
+function BrandMark() {
+  // A guide page with its corner folded: the product answers from documents.
+  return (
+    <svg className="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+      <rect width="24" height="24" rx="7" fill="#1b6e66" />
+      <path d="M8 6h6l3 3v9H8z" fill="#fff" />
+      <path d="M14 6v3h3" fill="#cfe3e0" />
+      <path d="M10 12.5h5M10 15h3.5" stroke="#1b6e66" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
   )
 }
 
