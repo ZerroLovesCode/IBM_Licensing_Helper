@@ -1,4 +1,6 @@
 import { useState } from "react";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 
 interface ChatRequest {
@@ -62,7 +64,11 @@ function App() {
           return (
             <div key={message.id} className={`turn turn-${message.role}`}>
               {message.role === "assistant" && <BrandMark />}
-              <div className="turn-body">{message.content}</div>
+              <div className="turn-body">
+                {message.role === "assistant"
+                  ? <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
+                  : message.content}
+              </div>
             </div>)
         })}
       </>
@@ -101,77 +107,82 @@ function App() {
 
   return (
     <div className="shell">
+      {/* Shown only on narrow screens, where the side panel is hidden. */}
       <header className="topbar">
         <div className="brand">
           <BrandMark />
-          Licensing Helper
+          IBM Licensing Assistant
         </div>
-        <span className="topbar-note">Answers drawn only from IBM's licensing guides</span>
       </header>
 
-      <div className="sheet">
-        <div className="layout">
-          <main className="main">
-            {messages.length === 0 ? (
-              <section className="intro">
-                <h1>Ask the IBM licensing guides.</h1>
-                <p className="intro-lede">
-                  Every answer comes from IBM's published licensing documentation and cites the
-                  guide and page it came from, so you can check it before you rely on it.
-                </p>
-                <ul className="starters" aria-label="Example questions">
-                  {STARTER_QUESTIONS.map((question) => (
-                    <li key={question}>
-                      <button type="button" className="starter" onClick={() => setChatInput(question)}>
-                        {question}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : (
-              <section className="transcript" aria-label="Conversation" aria-live="polite">
-                {displayMessages(messages)}
-                {loading && (
-                  <div className="turn turn-assistant turn-pending">
-                    <BrandMark />
-                    <div className="turn-body">
-                      Searching the guides
-                      <span className="dots" aria-hidden="true"><span /><span /><span /></span>
-                    </div>
-                  </div>
-                )}
-              </section>
-            )}
-
-            <div className="composer-dock">
-              <form className="composer" onSubmit={handleChatSubmit}>
-                <label htmlFor="query" className="visually-hidden">Your message</label>
-                <input
-                  id="query"
-                  type="text"
-                  autoComplete="off"
-                  placeholder="Ask about PVUs, sub-capacity, containers…"
-                  value={chatInput}
-                  onChange={(e) => {
-                    setChatInput(e.target.value)
-                  }} />
-                <button type="submit" disabled={loading || chatInput.trim()===""}>Ask</button>
-              </form>
-              <p className="composer-note">Answers cite the guide and page. Check the cited page before relying on it.</p>
-            </div>
-          </main>
-
-          <aside className="rail">
-            <div className="rail-panel">
-              <h2>Guides searched <span className="rail-count">{SOURCE_GUIDES.length}</span></h2>
-              <p>The assistant answers from these documents only.</p>
-              <ul className="sources">
-                {SOURCE_GUIDES.map((guide) => <li key={guide}>{guide}</li>)}
+      <div className="layout">
+        <main className="main">
+          {messages.length === 0 ? (
+            <section className="intro">
+              <h1>Ask the IBM licensing guides.</h1>
+              <p className="intro-lede">
+                Every answer comes from IBM's published licensing documentation and cites the
+                guide and page it came from, so you can check it before you rely on it.
+              </p>
+              <ul className="starters" aria-label="Example questions">
+                {STARTER_QUESTIONS.map((question) => (
+                  <li key={question}>
+                    <button type="button" className="starter" onClick={() => setChatInput(question)}>
+                      {question}
+                    </button>
+                  </li>
+                ))}
               </ul>
+            </section>
+          ) : (
+            <section className="transcript" aria-label="Conversation" aria-live="polite">
+              {displayMessages(messages)}
+              {loading && (
+                <div className="turn turn-assistant turn-pending">
+                  <BrandMark />
+                  <div className="turn-body">
+                    Searching the guides
+                    <span className="dots" aria-hidden="true"><span /><span /><span /></span>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          <div className="composer-dock">
+            <form className="composer" onSubmit={handleChatSubmit}>
+              <label htmlFor="query" className="visually-hidden">Your message</label>
+              <input
+                id="query"
+                type="text"
+                autoComplete="off"
+                placeholder="Ask about PVUs, sub-capacity, containers…"
+                value={chatInput}
+                onChange={(e) => {
+                  setChatInput(e.target.value)
+                }} />
+              <button type="submit" disabled={loading || chatInput.trim()===""}>Ask</button>
+            </form>
+            <p className="composer-note">Answers cite the guide and page. Check the cited page before relying on it.</p>
+          </div>
+        </main>
+
+        <aside className="rail">
+          <div className="rail-panel">
+            <div className="rail-brand">
+              <BrandMark />
+              <div>
+                <div className="rail-name">IBM Licensing Assistant</div>
+                <p className="rail-tagline">Your queries answered with citations from the official documentation</p>
+              </div>
             </div>
-          </aside>
-        </div>
+            <h2>Guides searched <span className="rail-count">{SOURCE_GUIDES.length}</span></h2>
+            <p>The assistant answers from these documents only.</p>
+            <ul className="sources">
+              {SOURCE_GUIDES.map((guide) => <li key={guide}>{guide}</li>)}
+            </ul>
+          </div>
+        </aside>
       </div>
     </div>
   )
