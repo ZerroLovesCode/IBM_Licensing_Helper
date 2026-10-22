@@ -2,17 +2,11 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 from functools import lru_cache
-from typing import TypedDict, Annotated, Literal
-from pydantic import Field, BaseModel
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 
 from langchain_chroma import Chroma
 
-from langchain_core.messages import BaseMessage
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.prompts import MessagesPlaceholder
-from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 
