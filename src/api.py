@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -9,8 +10,11 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 app = FastAPI()
 
+# Comma-separated list of frontend URLs allowed to call the API, e.g. the Render static site's URL.
 origins = [
-    "http://localhost:5173"
+    origin.strip().rstrip("/")
+    for origin in os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+    if origin.strip()
 ]
 
 app.add_middleware(

@@ -12,7 +12,6 @@ wheels/
 # Data files that don't have to be tracked
 
 # *sqlite3
-*.bin
 
 *.env
 src/.streamlit/secrets.toml

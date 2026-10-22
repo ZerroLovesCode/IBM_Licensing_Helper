@@ -19,14 +19,11 @@ interface Message {
   content: string;
 }
 
-async function checkHealth() {
-  const res = await fetch("http://127.0.0.1:8000/health")
-  const data = await res.json()
-  return data
-}
+// Set VITE_API_URL at build time (e.g. in Render's environment settings); falls back to the local API.
+const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000"
 
 async function sendMessage(message: string, session_id?: string): Promise<ChatResponse> {
-  const chat_url = "http://127.0.0.1:8000/chat"
+  const chat_url = `${API_URL}/chat`
   const payload: ChatRequest = {
     query: message,
     session_id: session_id ?? undefined
@@ -86,19 +83,30 @@ function App() {
       setMessages(prev => [...prev, userMessage])
       setChatInput("")
       setLoading(true)
-      const res = await sendMessage(query, session_id ?? undefined)
-      const assistantMessage: Message = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: res.message
+      try {
+        const res = await sendMessage(query, session_id ?? undefined)
+        const assistantMessage: Message = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: res.message
+        }
+        setMessages(prev => [...prev, assistantMessage])
+        if (!session_id) {
+          setSession_id(res.session_id)
+        }
+        console.log(messages)
+        // setAgentResponse(res.message)
+      } catch (err) {
+        console.error(err)
+        const errorMessage: Message = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "Sorry, I couldn't reach the server. If the app has been idle, it may take up to a minute to wake up. Please try again."
+        }
+        setMessages(prev => [...prev, errorMessage])
+      } finally {
+        setLoading(false)
       }
-      setMessages(prev => [...prev, assistantMessage])
-      if (!session_id) {
-        setSession_id(res.session_id)
-      }
-      console.log(messages)
-      // setAgentResponse(res.message)
-      setLoading(false)
     }
     else{
       return;
