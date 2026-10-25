@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -51,6 +51,15 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([])
   const [session_id, setSession_id] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Grow the textarea to fit its content; shrink back when it is cleared.
+  useLayoutEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = "auto"
+    el.style.height = `${el.scrollHeight}px`
+  }, [chatInput])
 
   // const [agentResponse, setAgentResponse] = useState("")
 
@@ -160,14 +169,24 @@ function App() {
           <div className="composer-dock">
             <form className="composer" onSubmit={handleChatSubmit}>
               <label htmlFor="query" className="visually-hidden">Your message</label>
-              <input
+              <textarea
                 id="query"
-                type="text"
+                ref={inputRef}
+                rows={1}
                 autoComplete="off"
                 placeholder="Ask about PVUs, sub-capacity, containers…"
                 value={chatInput}
                 onChange={(e) => {
                   setChatInput(e.target.value)
+                }}
+                onKeyDown={(e) => {
+                  // Enter sends, Shift+Enter adds a new line (not while an IME is composing).
+                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault()
+                    if (!loading && chatInput.trim() !== "") {
+                      e.currentTarget.form?.requestSubmit()
+                    }
+                  }
                 }} />
               <button type="submit" disabled={loading || chatInput.trim()===""}>Ask</button>
             </form>

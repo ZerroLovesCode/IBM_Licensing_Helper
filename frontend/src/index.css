@@ -275,28 +275,34 @@ body { background: var(--ground); min-height: 100dvh; }
 
 .composer {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
   padding: 6px 6px 6px 20px;
   background: var(--raised);
   border: 1px solid var(--border);
-  border-radius: var(--radius-control);
+  border-radius: 28px;
   box-shadow: 0 6px 24px rgb(31 32 29 / 0.08);
   transition: border-color 120ms ease;
 }
 .composer:focus-within { border-color: var(--accent); }
 
-.composer input {
+/* Grows with its content (App.tsx sets the height); scrolls inside after ~6 lines. */
+.composer textarea {
   flex: 1;
   min-width: 0;
-  height: 44px;
+  min-height: 44px;
+  max-height: 168px;
+  padding: 10px 0;
   border: 0;
   background: transparent;
   font: inherit;
+  line-height: 24px;
   color: var(--text);
+  resize: none;
+  overflow-y: auto;
 }
-.composer input::placeholder { color: var(--muted); }
-.composer input:focus { outline: none; }
+.composer textarea::placeholder { color: var(--muted); }
+.composer textarea:focus { outline: none; }
 
 .composer button {
   height: 44px;
