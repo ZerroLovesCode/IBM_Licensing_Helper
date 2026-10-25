@@ -1,6 +1,9 @@
 import os
+import json
+from collections.abc import AsyncIterable, Iterable
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Annotated
 from agent import make_graph
@@ -57,3 +60,35 @@ def chat(req: ChatRequest):
     model_response_text = model_response["messages"][-1].text 
     res = ChatResponse(message=model_response_text, session_id = cur_session)
     return res
+
+@app.post("/chat/stream")
+def chat_stream(req: ChatRequest):
+    prompt = {}
+    prompt["messages"] = [("user", req.query)] 
+
+    def chat_stream_generator():
+        if not req.session_id:
+            session_id = uuid4()
+            cur_session = session_id
+        else:
+            cur_session = req.session_id
+
+        yield json.dumps({
+            "type": "session",
+            "session_id": str(cur_session)
+        }) + "\n"
+        model_response = graph.stream(input=prompt, config={"configurable": {"thread_id": str(cur_session)}},stream_mode="messages", version="v2")
+        for chunk in model_response:
+            if chunk["type"] == "messages":
+                message_chunk, meta_data = chunk["data"]
+                if meta_data["langgraph_node"] == "chat" and message_chunk.text:
+                    yield json.dumps({
+                        "type": "token",
+                        "text": message_chunk.text
+                    }) + "\n"
+        yield json.dumps({
+            "type": "done"
+        }) + "\n"
+    
+    return StreamingResponse(chat_stream_generator(), media_type="application/x-ndjson")
+    
