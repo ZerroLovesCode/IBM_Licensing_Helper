@@ -1,6 +1,5 @@
 import os
 import json
-from collections.abc import AsyncIterable, Iterable
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -66,29 +65,43 @@ def chat_stream(req: ChatRequest):
     prompt = {}
     prompt["messages"] = [("user", req.query)] 
 
+    if not req.session_id:
+        session_id = uuid4()
+        cur_session = session_id
+    else:
+        cur_session = req.session_id
+
     def chat_stream_generator():
-        if not req.session_id:
-            session_id = uuid4()
-            cur_session = session_id
-        else:
-            cur_session = req.session_id
 
         yield json.dumps({
             "type": "session",
             "session_id": str(cur_session)
         }) + "\n"
         model_response = graph.stream(input=prompt, config={"configurable": {"thread_id": str(cur_session)}},stream_mode="messages", version="v2")
-        for chunk in model_response:
-            if chunk["type"] == "messages":
-                message_chunk, meta_data = chunk["data"]
-                if meta_data["langgraph_node"] == "chat" and message_chunk.text:
-                    yield json.dumps({
-                        "type": "token",
-                        "text": message_chunk.text
-                    }) + "\n"
+        try:
+            for chunk in model_response:
+                if chunk["type"] == "messages":
+                    message_chunk, meta_data = chunk["data"]
+                    if meta_data["langgraph_node"] == "chat" and message_chunk.text:
+                        yield json.dumps({
+                            "type": "token",
+                            "text": message_chunk.text
+                        }) + "\n"
+        except Exception as e:
+            print(e)
+            yield json.dumps({
+                "type": "error",
+                "message": "Something went wrong :("
+            }) + "\n"
+            return
+
         yield json.dumps({
             "type": "done"
         }) + "\n"
     
-    return StreamingResponse(chat_stream_generator(), media_type="application/x-ndjson")
+    streaming_headers = {
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no"
+    }
+    return StreamingResponse(chat_stream_generator(), media_type="application/x-ndjson", headers=streaming_headers)
     
