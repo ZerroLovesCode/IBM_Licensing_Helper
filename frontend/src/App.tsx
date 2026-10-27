@@ -8,11 +8,6 @@ interface ChatRequest {
   session_id?: string;
 }
 
-interface ChatResponse {
-  message: string;
-  session_id: string
-}
-
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -59,7 +54,7 @@ async function* streamChatQuery(message: string, session_id?: string): AsyncGene
       break;
     }
     buffer += decoder.decode(value, { stream: true })
-    let buffer_list = buffer.split("\n")
+    const buffer_list = buffer.split("\n")
     const rest = buffer_list.pop()
     buffer = rest ?? ""
     for (const line of buffer_list) {
@@ -161,7 +156,7 @@ function App() {
                 setMessages(prev => prev.map(m => m.id === id ? { ...m, content: m.content + event.text } : m))
               }
               break;
-            case "error":
+            case "error": {
               replyId = crypto.randomUUID()
               const assistantMessage: Message = {
                 id: replyId,
@@ -169,6 +164,8 @@ function App() {
                 content: event.message
               }
               setMessages(prev => [...prev, assistantMessage])
+              break;
+            }
           }
 
         }
