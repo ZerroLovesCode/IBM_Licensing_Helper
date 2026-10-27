@@ -22,8 +22,14 @@ interface Message {
 // Set VITE_API_URL at build time (e.g. in Render's environment settings); falls back to the local API.
 const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000"
 
-async function sendMessage(message: string, session_id?: string): Promise<ChatResponse> {
-  const chat_url = `${API_URL}/chat`
+
+type StreamEvent =
+  | { type: "session"; session_id: string }
+  | { type: "token"; text: string }
+  | { type: "error"; message: string }
+  | { type: "done" }
+async function* streamChatQuery(message: string, session_id?: string): AsyncGenerator<StreamEvent> {
+  const chat_url = `${API_URL}/chat/stream`
   const payload: ChatRequest = {
     query: message,
     session_id: session_id ?? undefined
@@ -40,10 +46,51 @@ async function sendMessage(message: string, session_id?: string): Promise<ChatRe
     throw new Error(`HTTP Error ${res.status}`)
   }
 
-  const result = await res.json();
-  console.log(result)
-  return result
+  if (!res.body) {
+    throw new Error(`No Response Body`)
+  }
+  const reader = res.body?.getReader()
+  const decoder = new TextDecoder()
+
+  let buffer = ""
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) {
+      break;
+    }
+    buffer += decoder.decode(value, { stream: true })
+    let buffer_list = buffer.split("\n")
+    const rest = buffer_list.pop()
+    buffer = rest ?? ""
+    for (const line of buffer_list) {
+      yield JSON.parse(line)
+    }
+
+  }
 }
+
+// async function sendMessage(message: string, session_id?: string): Promise<ChatResponse> {
+//   const chat_url = `${API_URL}/chat`
+//   const payload: ChatRequest = {
+//     query: message,
+//     session_id: session_id ?? undefined
+//   }
+//   const res = await fetch(chat_url, {
+//     method: 'POST',
+//     headers: {
+//       'Content-Type': 'application/json'
+//     },
+//     body: JSON.stringify(payload)
+//   })
+
+//   if (!res.ok) {
+//     throw new Error(`HTTP Error ${res.status}`)
+//   }
+
+//   const result = await res.json();
+//   console.log(result)
+//   return result
+// }
 
 function App() {
   // const [health, setHealth] = useState("")
@@ -83,28 +130,57 @@ function App() {
   async function handleChatSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     const query = chatInput
-    if (query.trim() != ""){
+    if (query.trim() != "") {
       const userMessage: Message = {
         id: crypto.randomUUID(),
         role: "user",
-        content: query 
+        content: query
       }
       setMessages(prev => [...prev, userMessage])
       setChatInput("")
       setLoading(true)
       try {
-        const res = await sendMessage(query, session_id ?? undefined)
-        const assistantMessage: Message = {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: res.message
+        let replyId: string | null = null;
+        for await (const event of streamChatQuery(query, session_id ?? undefined)) {
+          switch (event.type) {
+            case "session":
+              setSession_id(event.session_id);
+              break;
+            case "token":
+              if (!replyId) {
+                replyId = crypto.randomUUID()
+                const assistantMessage: Message = {
+                  id: replyId,
+                  role: "assistant",
+                  content: event.text
+                }
+                setMessages(prev => [...prev, assistantMessage])
+              }
+              else {
+                const id = replyId
+                setMessages(prev => prev.map(m => m.id === id ? { ...m, content: m.content + event.text } : m))
+              }
+              break;
+            case "error":
+              replyId = crypto.randomUUID()
+              const assistantMessage: Message = {
+                id: replyId,
+                role: "assistant",
+                content: event.message
+              }
+              setMessages(prev => [...prev, assistantMessage])
+          }
+
         }
-        setMessages(prev => [...prev, assistantMessage])
-        if (!session_id) {
-          setSession_id(res.session_id)
+        if (!replyId) {
+          replyId = crypto.randomUUID()
+          const assistantMessage: Message = {
+            id: replyId,
+            role: "assistant",
+            content: "Something went wrong..."
+          }
+          setMessages(prev => [...prev, assistantMessage])
         }
-        console.log(messages)
-        // setAgentResponse(res.message)
       } catch (err) {
         console.error(err)
         const errorMessage: Message = {
@@ -117,7 +193,7 @@ function App() {
         setLoading(false)
       }
     }
-    else{
+    else {
       return;
     }
   }
@@ -154,7 +230,8 @@ function App() {
           ) : (
             <section className="transcript" aria-label="Conversation" aria-live="polite">
               {displayMessages(messages)}
-              {loading && (
+              {/* Only until the first token arrives: then the assistant's message is the last one. */}
+              {loading && messages[messages.length - 1]?.role === "user" && (
                 <div className="turn turn-assistant turn-pending">
                   <BrandMark />
                   <div className="turn-body">
@@ -188,7 +265,7 @@ function App() {
                     }
                   }
                 }} />
-              <button type="submit" disabled={loading || chatInput.trim()===""}>Ask</button>
+              <button type="submit" disabled={loading || chatInput.trim() === ""}>Ask</button>
             </form>
             <p className="composer-note">Answers cite the guide and page. Check the cited page before relying on it.</p>
           </div>
