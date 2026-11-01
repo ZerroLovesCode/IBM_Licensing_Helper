@@ -46,19 +46,12 @@ def ingest_data():
         # Add the batch to the database
         vector_db.add_documents(batch)
         
-        # Throttling: Wait 2 seconds between batches to stay under 100 RPM
-        # This gives the API "room to breathe"
+        # Throttling: Wait 10 seconds between batches to stay under 100 RPM
         time.sleep(10)
 
-    print(f"Successfully ingested data inro {DB_DIR}")
+    print(f"Successfully ingested data into {DB_DIR}")
 
 if __name__ == "__main__":
     print("## Starting Process ##")
     ingest_data()
 
-# embeddings = GoogleGenerativeAIEmbeddings(
-#     model="gemini-embedding-001",
-#     task_type="RETRIEVAL_DOCUMENT"
-# )
-
-# print(embeddings.embed_query("Does this even work?"))
